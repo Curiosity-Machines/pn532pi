@@ -12,8 +12,8 @@ DATA_WRITE = 1
 DATA_READ = 3
 
 RPI_BUS0 = 0
+RPI_BUS1 = 1
 SPI_MODE0 = 0b0
-
 
 def _reverse_bits(data: bytearray) -> bytearray:
     """Reverse bit order for all bytes in a byte array"""
@@ -21,8 +21,14 @@ def _reverse_bits(data: bytearray) -> bytearray:
 
 
 class Pn532Spi(Pn532Interface):
-    SS0_GPIO8 = 0
-    SS1_GPIO7 = 1
+    SS0_GPIO8 = 0 # compatability with examples
+    SS1_GPIO7 = 1 # compatability with examples
+
+    RPI_BUS0 = 0
+    RPI_BUS1 = 1
+    SS0 = 0
+    SS1 = 1
+    SS2 = 2 # bus 1 only
 
     def _get_byte(self):
         data = self._spi.readbytes(1)
@@ -45,14 +51,18 @@ class Pn532Spi(Pn532Interface):
         data_out = list(_reverse_bits([STATUS_READ, 0]))
         return _reverse_bits(self._spi.xfer2(data_out))[1]
 
-    def __init__(self, ss: int):
+    def __init__(self, bus: int, ss: int):
         self._command = 0
         self._ss = ss
+        self._bus = bus
         self._spi = SpiDev()
-        assert ss in [1, 0], 'Chip select must be 1 or 0'
+        if self._bus == RPI_BUS1:
+            assert ss in [2, 1, 0], 'Chip select must be 2, 1 or 0'
+        else:
+            assert ss in [1, 0], 'Chip select must be 1 or 0'
 
     def begin(self):
-        self._spi.open(RPI_BUS0, self._ss)
+        self._spi.open(self._bus, self._ss)
         self._spi.mode = SPI_MODE0  # PN532 only supports mode0
         self._spi.cshigh = False  # Active low
         self._spi.max_speed_hz = 5000000 # 5 MHz

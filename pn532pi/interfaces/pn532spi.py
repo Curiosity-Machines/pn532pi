@@ -91,10 +91,10 @@ class Pn532Spi(Pn532Interface):
     def _getResponseLength(self, timeout: int):
         PN532_NACK = [0, 0, 0xFF, 0xFF, 0, 0]
         timer = 0
-
+        
         while (not self._isReady()):
-            time.sleep(.001)    # sleep 1 ms
-            timer+=1
+            time.sleep(.005)    # increase sleep from 1ms to 5ms
+            timer+=5            # bump timer by 5x to match increased sleep time
             if ((0 != timeout) and (timer > timeout)):
                 return -1          
 

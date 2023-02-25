@@ -88,16 +88,16 @@ class Pn532Spi(Pn532Interface):
 
         return 0
 
-    def _getResponseLength(self, timeout: int):
+    def _getResponseLength(self, timeout: int, slow=False):
         PN532_NACK = [0, 0, 0xFF, 0xFF, 0, 0]
         timer = 0
+        stretch = 100 if slow else 1
         
         while (not self._isReady()):
-            time.sleep(.005)    # increase sleep from 1ms to 5ms
-            timer+=5            # bump timer by 5x to match increased sleep time
+            time.sleep(.001 * stretch)  # increase sleep by stretch
+            timer += stretch            # bump timer by stretch to match increased sleep time
             if ((0 != timeout) and (timer > timeout)):
                 return -1          
-
 
         data = self._xfer_bytes([DATA_READ] + [0 for i in range(5)])
         data = data[1:]  # first byte is garbage
@@ -122,13 +122,12 @@ class Pn532Spi(Pn532Interface):
 
         return length
 
-    def readResponse(self, timeout: int = 1000) -> (int, bytearray):
+    def readResponse(self, timeout: int = 1000, slow=False) -> (int, bytearray):
         timer = 0
         buf = bytearray()        
         result = 0
 
-        length = self._getResponseLength(timeout)
-
+        length = self._getResponseLength(timeout, slow=slow)
         if length < 0:
             return length, buf
 

@@ -168,6 +168,20 @@ class Pn532:
         # response |= self.pn532_packetbuffer[3]
 
         return int.from_bytes(response, byteorder='big')
+        
+    def diagnose(self) -> int:
+
+        # test 7 = Antenna presence test
+        # 0x25 = Tx1 + Tx2 on; current range 25mA to 70mA
+        if (self._interface.writeCommand(bytearray([PN532_COMMAND_DIAGNOSE, 0x07, 0x25]))):
+            return 0
+
+        # read data packet
+        status, response = self._interface.readResponse()
+        if (status < 0):
+            return 0
+
+        return response
 
     def readRegister(self, reg: int) -> int:
         """
@@ -415,6 +429,46 @@ class Pn532:
         if (inlist) :
             self.inListedTag = response[1]
         
+        return True, uid
+    
+    def autoPoll(self, attempts: int, interval: int) -> (bool, bytearray):
+
+        header = bytearray([
+            PN532_COMMAND_INAUTOPOLL,
+            attempts & 0xff, # -1 forever (will timeout after 30 seconds)
+            interval & 0xff, # sampling interval  * 150ms
+            0x00, # only look for regular Mifare
+        ])
+        
+        if (self._interface.writeCommand(header)) :
+            return False, bytearray()  # command failed
+
+        if attempts == -1:
+            wait_time = 30000 # "infinite" wait is max 30 seconds
+        else:
+            wait_time = 150 * attempts * interval
+        status, response = self._interface.readResponse(wait_time, slow=True)
+        if (status < 0):
+            return False, bytearray()
+        
+        # ISO14443A card response should be in the following format:
+
+        # byte            Description
+        # -------------   ------------------------------------------
+        # b0              Tags Found
+        # b1              Type
+        # b2              Length
+        # b3...           TargetData
+
+        if (response[0] == 0):
+            return False, bytearray()
+            
+        uid = 'unknown'
+        if (response[7] == 4): # regular Mifare
+            uid = response[-4:]
+        elif (response[7] == 7): # Mifare Ultralight
+            uid = response[-7:]
+
         return True, uid
     
     # **** Mifare Classic Functions *****
